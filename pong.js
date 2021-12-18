@@ -29,16 +29,18 @@ const gamer2 = JSON.parse(localStorage.getItem("game"))?.gamer2 || {
 };
 
 //Ball object
-const ball = {
-  x: canvas.width / 2,
-  y: canvas.height / 2,
-  width: 15,
-  height: 15,
-  speed: 6,
-  velocityX: 6,
-  velocityY: -6,
-  color: "WHITE",
-};
+const balls = [
+  {
+    x: canvas.width / 2,
+    y: canvas.height / 2,
+    width: 15,
+    height: 15,
+    speed: 6,
+    velocityX: 6,
+    velocityY: -6,
+    color: "WHITE",
+  },
+];
 
 //Net Object
 const net = {
@@ -93,8 +95,10 @@ const render = () => {
   drawRect(gamer1.x, gamer1.y, gamer1.width, gamer1.height, gamer1.color);
   drawRect(gamer2.x, gamer2.y, gamer2.width, gamer2.height, gamer2.color);
 
-  //Draw the ball
-  drawRect(ball.x, ball.y, ball.width, ball.height, ball.color);
+  //Draw the balls
+  balls.map((ball) => {
+    drawRect(ball.x, ball.y, ball.width, ball.height, ball.color);
+  });
 };
 
 //Function that moves paddle
@@ -107,14 +111,26 @@ const movePaddle = (event) => {
     gamer2.y -= 50;
   } else if (event.code == "ArrowDown") {
     gamer2.y += 50;
+  } else if (event.code == "Space") {
+    const newBall = {
+      x: canvas.width / 2,
+      y: canvas.height / 2,
+      width: 15,
+      height: 15,
+      speed: 6,
+      velocityX: 6,
+      velocityY: -6,
+      color: "WHITE",
+    };
+    balls.push(newBall);
   }
 };
 
-//Control the gamer1 paddle
+//Control the gamer paddles
 document.addEventListener("keyup", movePaddle);
 
 //Detect horizontal collision
-const isCollidedHorizontaly = () =>
+const isCollidedHorizontaly = (ball) =>
   ball.y + ball.height > canvas.height || ball.y < 0;
 
 //Detect vertical collision
@@ -136,11 +152,10 @@ const isCollidedVertically = (b, p) => {
 };
 
 //Reset ball
-const resetBall = () => {
+const resetBall = (ball) => {
   ball.x = canvas.width / 2;
   ball.y = canvas.height / 2;
   const random = Math.floor(Math.random() * (150 - 30 + 1) + 30);
-  console.log(random);
   ball.speed = 6;
   ball.velocityX = ball.speed * Math.cos(random);
   ball.velocityY = ball.speed * Math.sin(random);
@@ -148,41 +163,43 @@ const resetBall = () => {
 
 //Update game function
 const update = () => {
-  ball.x = ball.x + ball.velocityX;
-  ball.y = ball.y + ball.velocityY;
+  balls.map((ball) => {
+    ball.x = ball.x + ball.velocityX;
+    ball.y = ball.y + ball.velocityY;
 
-  //Check if ball hits the upper and lower bounds
-  if (isCollidedHorizontaly()) ball.velocityY = -ball.velocityY;
+    //Check if ball hits the upper and lower bounds
+    if (isCollidedHorizontaly(ball)) ball.velocityY = -ball.velocityY;
 
-  //Decide wich player's hit
-  let player = ball.x < canvas.width / 2 ? gamer1 : gamer2;
+    //Decide wich player's hit
+    let player = ball.x < canvas.width / 2 ? gamer1 : gamer2;
+    //Change to velocity if hits the paddle
+    if (isCollidedVertically(ball, player)) {
+      //Where the ball hit paddle
+      let collidePoint = ball.y - (player.y + player.height / 2);
 
-  //Change to velocity if hits the paddle
-  if (isCollidedVertically(ball, player)) {
-    //Where the ball hit paddle
-    let collidePoint = ball.y - (player.y + player.height / 2);
+      //Normalization
+      collidePoint = collidePoint / (player.height / 2);
 
-    //Normalization
-    collidePoint = collidePoint / (player.height / 2);
+      //Calculate the angle in Radian
+      let angleRad = (collidePoint * Math.PI) / 4;
 
-    //Calculate the angle in Radian
-    let angleRad = (collidePoint * Math.PI) / 4;
+      //Direction of the ball when hit a paddle
+      let direction = ball.x < canvas.width / 2 ? 1 : -1;
 
-    //Direction of the ball when hit a paddle
-    let direction = ball.x < canvas.width / 2 ? 1 : -1;
+      //Change the velocity of X and Y
+      ball.velocityX = direction * ball.speed * Math.cos(angleRad);
+      ball.velocityY = ball.speed * Math.sin(angleRad);
+    }
+    //Decide who scored based on ball location
+    if (ball.x < 0) {
+      gamer2.score++;
+      resetBall(ball);
+    } else if (ball.x + ball.width > canvas.width) {
+      gamer1.score++;
+      resetBall(ball);
+    }
+  });
 
-    //Change the velocity of X and Y
-    ball.velocityX = direction * ball.speed * Math.cos(angleRad);
-    ball.velocityY = ball.speed * Math.sin(angleRad);
-  }
-  //Decide who scored based on ball location
-  if (ball.x < 0) {
-    gamer2.score++;
-    resetBall();
-  } else if (ball.x + ball.width > canvas.width) {
-    gamer1.score++;
-    resetBall();
-  }
   localStorage.setItem("game", gameState());
 };
 
@@ -202,6 +219,7 @@ const game = () => {
     finishGame();
     return;
   }
+
   update();
   render();
 };
